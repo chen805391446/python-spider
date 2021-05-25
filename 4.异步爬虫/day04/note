@@ -1,0 +1,106 @@
+梨视频爬取思路：
+    - 将每一个视频详情页的url进行解析
+    - 对视频详情页的url进行请求发送
+    - 在视频详情页的页面源码中进行全局搜索，发现没有找到video标签
+        - 视频标签是动态加载出来
+        - 动态加载的数据方式
+            - ajax
+            - js
+    - 在页面源码中搜索.mp4，定位到了视频的地址（存在于一组js代码）
+        - 通过正则将视频地址解析出来对其发起请求即可
+异步爬虫（应付面试）
+    - 基于线程池
+    - 基于单线程+多任务的异步爬虫
+
+- Flask的基本使用
+    - 环境安装：pip install flask
+    - 创建一个py源文件
+    - 详细代码看FlaskServer.py
+- 线程池
+    - from multiprocessing.dummy import Pool
+    - map(callback,alist)
+        - 可以使用callback对alist中的每一个元素进行指定形式的异步操作
+
+
+- 单线程+多任务异步协程：pip install asyncio
+    - 特殊的函数
+        - 如果一个函数的定义被async修饰后，则该函数就变成了一个特殊的函数
+        - 特殊之处：
+            - 该特殊的函数调用后，函数内部的实现语句不会被立即执行
+            - 该特殊函数被调用后会返回一个协程对象
+    - 协程对象
+        - 对象。通过特殊函数的调用返回一个协程对象。
+        - 协程 == 特殊函数 == 一组指定的操作
+        - 协程 == 一组指定的操作
+    - 任务对象
+        - 任务对象就是一个高级的协程对象。（任务对象就是对协程对象的进一步封装）
+        - 任务 == 协程 == 特殊函数 == 一组指定操作
+        - 任务 == 一组指定的操作
+        - 如何创建一个任务对象：
+            - asyncio.ensure_future(协程对象)
+        - 任务对象的高级之处：
+            - 可以给任务对象绑定回调：
+                - task.add_done_callback(task_callback)
+                - 回调函数的调用时机：
+                    - 任务被执行结束后，才可以调用回调函数
+                - 回调函数的参数只可以有一个:表示的就是该回调函数的调用者（任务对象）
+                - 使用回调函数的参数调用result()返回的就是任务对象表示的特殊函数return的结果
+    - 事件循环对象
+        - 对象。
+        - 作用：
+            - 可以将多个任务对象注册/装载到事件循环对象中
+            - 如果开启了事件循环后，则其内部注册/装载的任务对象表示的指定操作就会被基于异步的被执行
+        - 创建方式：
+            - loop = asyncio.get_event_loop()
+        - 注册且启动方式：
+            - loop.run_until_complete(task)
+
+    - wait方法的作用：
+        - 将任务列表中的任务对象赋予可被挂起的权限。只有任务对象被赋予了可被挂起的权限后，该
+            任务对象才可以被挂起
+            - 挂起：将当前的任务对象交出cpu的使用权。
+    - 注意事项【重要】：
+        - 在特殊函数内部不可以出现不支持异步模块对应的代码，否则会中断整个异步效果
+
+    - await关键字
+        - 在特殊函数内部，凡是阻塞操作前都必须使用await进行修饰。await就可以保证
+        阻塞操作在异步执行的过程中不会被跳过！
+
+- aiohttp
+    - 是一个支持异步的网络请求模块。
+    - pip install aiohttp
+    - 使用代码：
+        - 1.写出一个大致的架构
+            async def get_request(url):
+            #实例化好了一个请求对象
+            with aiohttp.ClientSession() as sess:
+                #调用get发起请求，返回一个响应对象
+                #get/post(url,headers,params/data,proxy="http://ip:port")
+                with sess.get(url=url) as response:
+                    #获取了字符串形式的响应数据
+                    page_text = response.text()
+                    return page_text
+        - 2.补充细节
+            - 在阻塞操作前加上await关键字
+            - 在每一个with前加上async关键字
+        - 完整代码：
+            async def get_request(url):
+                #实例化好了一个请求对象
+                with aiohttp.ClientSession() as sess:
+                    #调用get发起请求，返回一个响应对象
+                    #get/post(url,headers,params/data,proxy="http://ip:port")
+                    with await sess.get(url=url) as response:
+                        #text()获取了字符串形式的响应数据
+                        #read()获取byte类型的响应数据
+                        page_text = await response.text()
+                        return page_text
+    - 多任务爬虫的数据解析
+        - 一定要使用任务对象的回调函数实现数据解析
+        - why：
+            - 多任务的架构中数据的爬取是封装在特殊函数中，我们一定要保证数据请求结束后，
+                在实现数据解析。
+                
+    - 使用多任务的异步协程爬取数据实现套路：
+        - 可以先使用requests模块将待请求数据对应的url封装到有个列表中（同步）
+        - 可以使用aiohttp模式将列表中的url进行异步的请求和数据解析（异步）
+
