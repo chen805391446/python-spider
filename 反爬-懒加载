@@ -1,6 +1,6 @@
 '''
 破解反扒机制之懒加载
-如28那里的XPATH
+本次爬取网址https://sc.chinaz.com/tupian/之高清图片爬取
 1，首先分析网页，发现并不是动态加载，故优先只查看Elements,在后面通过爬取发现，li.list为空，则表示可能XPATH可能写错，
 再次检查，发现还是为0，考虑是XPATH写的是伪装的节点，本例中特指懒加载，即'//div[@class="box picblock col3 masonry-brick"]/div/a/@href'
 2，通过1发现爬取不了，于是查看网页源码，可以找到要爬的内容在'//div[@class="box picblock col3"]/div/a/@href'
