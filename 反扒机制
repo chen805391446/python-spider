@@ -1,0 +1,59 @@
+'''
+破解反扒机制之懒加载
+如28那里的XPATH
+1，首先分析网页，发现并不是动态加载，故优先只查看Elements,在后面通过爬取发现，li.list为空，则表示可能XPATH可能写错，
+再次检查，发现还是为0，考虑是XPATH写的是伪装的节点，本例中特指懒加载，即'//div[@class="box picblock col3 masonry-brick"]/div/a/@href'
+2，通过1发现爬取不了，于是查看网页源码，可以找到要爬的内容在'//div[@class="box picblock col3"]/div/a/@href'
+3，通过循环，进入每个图片的大图页面，下载大图
+'''
+import os
+from lxml import etree
+import requests
+
+headers = {
+    'User_Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36'
+}
+
+dirName = 'Girllib'
+if not os.path.exists(dirName):
+    os.mkdir(dirName)
+
+url = 'https://sc.chinaz.com/tag_tupian/yazhou_%d.html'
+# 连续爬六页
+for page in range(1,6):
+    if page == 1:
+        re_url = 'https://sc.chinaz.com/tag_tupian/yazhou.html'
+    else:
+        re_url = format(url%page)
+    response = requests.get(url=re_url,headers=headers)
+    response.encoding = 'utf-8'
+    page_text = response.text
+    tree = etree.HTML(page_text)
+    # 难点在这里的XPATH
+    li_list = tree.xpath('//div[@class="box picblock col3"]/div/a/@href')
+    list_index = []
+    for li in li_list:
+        big_url = 'http://sc.chinaz.com' + li
+        list_index.append(list(big_url.split()))
+    # 进入大图网页，下载高清大图
+    for index in list_index:
+        # print(index[0])
+        sub_response = requests.get(url= index[0], headers=headers)
+        sub_response.encoding = 'utf-8'
+        sub_text = sub_response.text
+        sub_tree = etree.HTML(sub_text)
+        try:
+            # 再次数据解析
+            # img_src为网址
+            img_src = 'http:' + sub_tree.xpath('//div[@class="imga"]//a/@href')[0]
+            # title为本地保存的名字
+            title = sub_tree.xpath('//div[@class="imga"]//a/@title')[0] + '.jpg'
+            # 图片，文件使用content，这个是用来接收二进制数据的，与text不同
+            img_data = requests.get(url=img_src,headers=headers).content
+            # 保存位置
+            imgPath = dirName + '/' + title
+            with open(imgPath, 'wb') as fb:
+                fb.write(img_data)
+                print(title, '保存成功！')
+        except Exception as e:
+            print(e)
