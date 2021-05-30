@@ -1,0 +1,68 @@
+# 梨视频爬取
+# 模块导入
+import requests
+import re
+from lxml import etree
+import time
+# 头部
+headers = {
+'User_Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36'
+}
+
+def mov_url():
+    # 定义变量，爬取多次
+    current = 0
+    total = 2
+    while current <= total:
+        start = current * 12
+        # 开始的视频url
+        if start == 0:
+            one_url = 'https://www.pearvideo.com/category_59'
+            response = requests.get(url=one_url, headers=headers)
+            page_text = response.text
+            tree = etree.HTML(page_text)
+            li_list = tree.xpath('//*[@id="categoryList"]/li/div/a')
+        # 在异步请求后的url
+        else:
+            next_url = 'https://www.pearvideo.com/category_loading.jsp?reqType=5&categoryId=59&start={}'.format(start)
+            response = requests.get(url=next_url,headers=headers)
+            page_text = response.text
+            tree = etree.HTML(page_text)
+            li_list = tree.xpath('/html/body/li/div/a')
+        for li in li_list:
+            list_page = li.xpath('./@href')[0]
+            url_id = list_page.replace('video_', '')
+            # 具体视频播放的url
+            detail_url = 'https://www.pearvideo.com/video_' + url_id
+            time.sleep(0.5)
+            movie_title = li.xpath('./div[2]/text()')[0]
+            # 此时要添加头部，不然会得到错误的地址
+            headers['Referer'] = detail_url
+            mov_url = 'https://www.pearvideo.com/videoStatus.jsp?'
+            # 每个视频都有一个对应的contId
+            param = {'contId': url_id}
+            res = requests.get(url=mov_url,headers=headers,params=param).json()
+            # 利用正则得到JS中的下载地址
+            pattern = r"srcUrl': '(.*)'"
+            re_find = re.compile(pattern, re.S)
+            down_url = re.findall(re_find, str(res))[0]
+            # https://video.pearvideo.com/mp4/third/20210526/cont-1730354-12725000-105915-hd.mp4  真实播放地址
+            # https://video.pearvideo.com/mp4/third/20210526/1622115132501-12725000-105915-hd.mp4  这个是down_url解析出来的地址
+            # 所以要进行替换
+            re_cont = 'cont-' + url_id
+            sp_cont = down_url.split('-')[0].split('/')[-1]
+            # 获得最终的视频下载地址
+            fin_url = down_url.replace(sp_cont, re_cont)
+            title = movie_title + '.mp4'
+            movPath = 'movie/' + title
+            try:
+                mov_data = requests.get(url=fin_url, headers=headers).content
+                with open(movPath, 'wb') as fb:
+                    fb.write(mov_data)
+                    print(title, '保存成功')
+            except Exception as e:
+                print(e)
+        current += 1
+
+if __name__ == '__main__':
+    mov_url()
